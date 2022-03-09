@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >= 0.6.0 <0.9.0;
+
+contract Ballot {                                        //Contract basis on a proposal
+    // VARIABLES                  
+    struct vote {                                        //Structure vote will be the current vote
+        address voterAddress;                            //Address of voter
+        bool choice;                                     //Choice of a voter, ie. voter is agree or disagree with proporsal 
+    }
+    struct voter {                                       //Structure of vote
+        string voterName;                                //Name of voter 
+        bool voted;                                      //Is the voter voted or not 
+    }
+    uint private countResult = 0;                        //Total number of agree votes. Private indicate the countResult will store in contract only 
+    uint public finalResult = 0;                         //finalResult will be set as countResult afterward
+    uint public totalVoter = 0;                          //How many voter registered
+    uint public totalVote = 0;                           //How many votes actually done
+    
+    address public ballotOfficialAddress;               //Address of Admin
+    string public ballotOfficialName;                   //Name of the Admin
+    string public proposal;                             //Proposal pass by Admin
+    
+    //Mapping is used to track which voter has register and which voter has voted
+
+    mapping(uint => vote) private votes;                //uint map with structure vote which is private, names with votes
+    mapping(address => voter) public voterRegister;     //Address map with structure voter which is public, named with voterRegister
+
+    enum State { Created , Voting , Ended }             //enum define State of voting
+    State public state;
+
+
+    //MODIFIER
+    modifier condition(bool _condition){                //Required condition for voting
+        require(_condition);
+        _;
+    }
+
+    modifier onlyOfficial(){                            //Only Admin can access this condition
+        require(msg.sender == ballotOfficialAddress);
+        _;
+    }
+
+    modifier inState(State _State){                     //Current state of voting
+        require(state == _State);
+        _;
+    }
+
+         
+    constructor(                                        //Constructor
+        string memory _ballotOfficialName,       
+        string memory _proposal
+    ) {
+        ballotOfficialAddress = msg.sender;
+        ballotOfficialName = _ballotOfficialName;
+        proposal = _proposal;
+        state = State.Created;
+
+    }
+
+    //FUNCTION 
+    function addVoter(                                  //Function to register the voter in smart contract
+        address _voterAddress,
+        string memory _voterName
+    )public 
+        inState(State.Created)                          //Define the system is created and access by only admin
+        onlyOfficial
+    {   
+        voter memory v;                                 //Calling voter struct
+        v.voterName = _voterName;                       //Setting voter name
+        v.voted = false;                                //Initially no one voted so thats false
+        voterRegister[_voterAddress] = v;               //Voter address mapped with v
+        totalVoter++;                                   //total voter incrementing
+
+    }
+
+
+    function startVote()                                //Function to Initialize the voting
+        public 
+        inState(State.Created)
+        onlyOfficial 
+    {
+        state = State.Voting;            
+    }
+
+    function doVote(bool _choice)                                        //Function to check which person vote has which choice 
+        public
+        inState(State.Voting)                                            //Condition will run when its come to voting state
+        returns (bool voted)                                             //return the voted value in boolen
+    {
+        bool isFound = false;                                            //To check the voter is found or not
+        if(bytes(voterRegister[msg.sender].voterName).length !=0         //Condition that person is existing or not
+          && voterRegister[msg.sender].voted == false)                   //Conditin for the  person is not voted already 
+        {
+            voterRegister[msg.sender].voted = true;                      //Registered person has voted now
+            vote memory v;                                               //Creating an object 
+            v.voterAddress = msg.sender;                                 //v.voterAddress will be set as msg.sender
+            v.choice = _choice;                                          //Taking choice
+            if(_choice) {
+             countResult++;                                              //Increment the countResult if condition is true 
+            }
+            votes[totalVote]=v;                                          //totalvote will be v due to mapping
+            totalVote++;                                                 //Increment the total vote
+            isFound = true;                                              //sure the voter is found
+        } 
+        return isFound;                                                  //return isFound value
+
+    }
+
+
+
+    function endVote()                             //Function to end the voting
+        public 
+        inState(State.Voting)                      //End the running voting
+        onlyOfficial                               //End by only Admin
+    {
+        state = State.Ended;                      //End the state
+        finalResult = countResult;                //Assign the value of countResult in finalResult
+    }
+
+
+
+
+
+
+}
